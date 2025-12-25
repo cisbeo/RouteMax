@@ -369,6 +369,150 @@ curl -X POST https://routemax.app/api/routes/optimize \
 
 ---
 
+### Auto-Optimize Route
+
+**Endpoint**: `POST /api/routes/auto-optimize`
+
+Automatically find and optimize route with clients along the path. This endpoint combines client suggestion and route optimization in a single workflow.
+
+**Request Body**:
+```typescript
+{
+  name: string;
+  startAddress: string;
+  startLat: number;
+  startLng: number;
+  startDatetime: string; // ISO 8601
+  mandatoryDestination: {
+    address: string;
+    lat: number;
+    lng: number;
+    clientId?: string; // Optional if new address
+  };
+  endAddress: string;
+  endLat: number;
+  endLng: number;
+  maxReturnTime: string; // ISO 8601 - HARD constraint
+  visitDurationMinutes?: number; // default: 20
+  prospectSearchRadiusKm?: number; // default: 5
+  lunchBreakStartTime?: string | null; // Format: "HH:MM"
+  lunchBreakDurationMinutes?: number | null;
+  vehicleType?: 'driving' | 'bicycling' | 'walking'; // default: 'driving'
+}
+```
+
+**Response** (200):
+```typescript
+{
+  route: Route;
+  stops: RouteStop[];
+  prospectsFound: number;
+  prospectsIncluded: number;
+  prospectsExcluded?: number;
+  clientsOutsideOpeningHours?: string[]; // Names of clients excluded
+  timeConstraintMet: boolean;
+}
+```
+
+**Business Logic**:
+
+1. Find prospects along route corridor (PostGIS spatial query)
+2. Merge mandatory destination with prospects
+3. Limit to 25 waypoints (Google API constraint)
+4. Call Google Routes Optimization API
+5. Calculate timeline with lunch break if configured
+6. **Enforce opening hours constraint (9h-17h default)**:
+   - Clients visited outside opening hours marked as `isIncluded: false`
+   - Not counted in visit statistics
+   - Names returned in `clientsOutsideOpeningHours` array
+7. Check `maxReturnTime` constraint
+8. Prune prospects if needed to meet deadline
+9. Save route and stops
+
+**Opening Hours Validation**:
+
+- Each client has `opening_time` and `closing_time` (default: 09:00-17:00)
+- Visit arrival time checked against client hours
+- Clients outside hours excluded but visible in timeline
+- Frontend shows toast notification with excluded client names
+
+**Error Responses**:
+
+- `400`: Invalid input, time constraint impossible
+- `401`: Unauthorized
+- `500`: Google API error or database error
+
+**Error Code: `TIME_CONSTRAINT_IMPOSSIBLE`**:
+```typescript
+{
+  error: 'Cannot meet time constraint even with only mandatory destination',
+  code: 'TIME_CONSTRAINT_IMPOSSIBLE',
+  details: {
+    estimatedReturnTime: '2025-12-26T20:00:00Z',
+    maxReturnTime: '2025-12-26T18:00:00Z',
+    overtimeMinutes: 120
+  }
+}
+```
+
+**Example**:
+```bash
+curl -X POST https://routemax.app/api/routes/auto-optimize \
+  -H "Content-Type: application/json" \
+  -H "Cookie: sb-access-token=..." \
+  -d '{
+    "name": "Route Automatique",
+    "startAddress": "10 Rue de Rivoli, Paris",
+    "startLat": 48.8566,
+    "startLng": 2.3522,
+    "startDatetime": "2025-12-26T08:00:00Z",
+    "mandatoryDestination": {
+      "address": "Lyon Centre, Lyon",
+      "lat": 45.764,
+      "lng": 4.8357,
+      "clientId": "uuid-mandatory"
+    },
+    "endAddress": "10 Rue de Rivoli, Paris",
+    "endLat": 48.8566,
+    "endLng": 2.3522,
+    "maxReturnTime": "2025-12-26T18:00:00Z",
+    "visitDurationMinutes": 30,
+    "prospectSearchRadiusKm": 10,
+    "lunchBreakStartTime": "12:00",
+    "lunchBreakDurationMinutes": 60,
+    "vehicleType": "driving"
+  }'
+```
+
+**Success Response Example**:
+```json
+{
+  "route": {
+    "id": "uuid-route",
+    "name": "Route Automatique",
+    "totalDistanceKm": 850.5,
+    "totalDurationMinutes": 480,
+    "totalVisits": 8
+  },
+  "stops": [...],
+  "prospectsFound": 12,
+  "prospectsIncluded": 8,
+  "prospectsExcluded": 4,
+  "clientsOutsideOpeningHours": ["Client A", "Client B"],
+  "timeConstraintMet": true
+}
+```
+
+**Notes**:
+
+- Mandatory destination always included (never pruned)
+- Prospect pruning removes furthest clients from route line first
+- Maximum 10 optimization attempts for time constraint
+- Lunch break inserted dynamically in timeline if configured
+- Opening hours checked after Google optimization (not before)
+
+---
+
 ### Get Route Details
 
 **Endpoint**: `GET /api/routes/[id]`

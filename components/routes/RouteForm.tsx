@@ -3,13 +3,12 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
-  LoadScript,
   StandaloneSearchBox,
 } from '@react-google-maps/api';
 import type { SuggestedClient, SkippedClientsInfo } from '@/lib/types';
 
 interface RouteFormProps {
-  googleMapsApiKey: string;
+  googleMapsApiKey?: string; // Not used anymore, kept for compatibility
 }
 
 export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
@@ -236,8 +235,7 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
   };
 
   return (
-    <LoadScript googleMapsApiKey={googleMapsApiKey} libraries={['places']}>
-      <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow">
+    <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow">
         <h1 className="text-3xl font-bold mb-6">Create New Route</h1>
 
         <div className="space-y-4">
@@ -601,7 +599,6 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
             </div>
           </div>
         )}
-      </div>
-    </LoadScript>
+    </div>
   );
 }

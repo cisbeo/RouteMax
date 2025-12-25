@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { GoogleMap, Marker, DirectionsRenderer, InfoWindow, LoadScript } from '@react-google-maps/api';
+import { GoogleMap, Marker, DirectionsRenderer, InfoWindow } from '@react-google-maps/api';
 import type { Route, RouteStop } from '@/lib/types';
 
 interface RouteMapProps {
   route: Route;
   stops: RouteStop[];
-  googleMapsApiKey: string;
+  googleMapsApiKey?: string;
   selectedStopId?: string;
   onStopSelect?: (stopId: string) => void;
 }
@@ -31,6 +31,23 @@ export function RouteMap({
     stopId: null,
     position: null,
   });
+
+  // Check if Google Maps API is loaded
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.google?.maps) {
+      setIsLoaded(true);
+    } else {
+      // Wait for Google Maps to load
+      const checkInterval = setInterval(() => {
+        if (window.google?.maps) {
+          setIsLoaded(true);
+          clearInterval(checkInterval);
+        }
+      }, 100);
+
+      return () => clearInterval(checkInterval);
+    }
+  }, []);
 
   const mapCenter = {
     lat: route.startLat,
@@ -163,12 +180,19 @@ export function RouteMap({
     });
   };
 
+  if (!isLoaded) {
+    return (
+      <div
+        className="flex items-center justify-center bg-gray-50 rounded-lg"
+        style={{ height: '600px' }}
+      >
+        <p className="text-gray-600">Chargement de la carte...</p>
+      </div>
+    );
+  }
+
   return (
-    <LoadScript
-      googleMapsApiKey={googleMapsApiKey}
-      onLoad={() => setIsLoaded(true)}
-    >
-      <GoogleMap
+    <GoogleMap
         mapContainerStyle={{
           width: '100%',
           height: '600px',
@@ -282,6 +306,5 @@ export function RouteMap({
           </InfoWindow>
         )}
       </GoogleMap>
-    </LoadScript>
   );
 }

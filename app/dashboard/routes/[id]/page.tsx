@@ -63,7 +63,13 @@ async function RouteDetail({ routeId }: { routeId: string }) {
 
     const { data: stopsData, error: stopsError } = await supabase
       .from('route_stops')
-      .select('*')
+      .select(`
+        *,
+        clients (
+          name,
+          address
+        )
+      `)
       .eq('route_id', routeId)
       .order('stop_order', { ascending: true });
 
@@ -93,11 +99,11 @@ async function RouteDetail({ routeId }: { routeId: string }) {
       createdAt: routeData.created_at,
     };
 
-    const stops: RouteStop[] = (stopsData || []).map((stop) => ({
+    const stops: RouteStop[] = (stopsData || []).map((stop: any) => ({
       id: stop.id,
       clientId: stop.client_id,
-      clientName: null,
-      address: stop.address,
+      clientName: stop.clients?.name || null,
+      address: stop.address || stop.clients?.address || '',
       lat: stop.lat,
       lng: stop.lng,
       stopOrder: stop.stop_order,

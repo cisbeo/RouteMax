@@ -34,6 +34,8 @@ Customer locations with geocoding and spatial data.
 - `geom` GEOMETRY(Point, 4326) - PostGIS spatial column
 - `geocoded_at` TIMESTAMP
 - `is_active` BOOLEAN
+- `opening_time` TIME - Client opening hours (default: 09:00:00)
+- `closing_time` TIME - Client closing hours (default: 17:00:00)
 - `created_at` TIMESTAMP
 - `updated_at` TIMESTAMP
 
@@ -211,6 +213,11 @@ WHERE ST_DWithin(
   ST_SetSRID(ST_MakePoint($lng, $lat), 4326)::geography,
   5000 -- 5km radius
 );
+
+-- Get clients with opening hours for route planning
+SELECT id, name, address, lat, lng, opening_time, closing_time
+FROM clients
+WHERE user_id = auth.uid() AND is_active = true;
 ```
 
 ### 2. Route Creation
@@ -254,6 +261,56 @@ ORDER BY visit_count DESC;
 
 ---
 
+## Business Rules
+
+### Opening Hours Constraint
+
+**Migration**: `009_add_opening_hours.sql`
+
+Clients have configurable opening hours that constrain visit scheduling:
+
+- **Default Hours**: 09:00:00 - 17:00:00 (9 AM - 5 PM)
+- **Format**: TIME type (HH:MM:SS)
+- **Enforcement**: Application-level validation during route optimization
+- **Behavior**: Clients visited outside hours marked as `isIncluded: false` in route_stops
+
+**Validation Logic**:
+
+```typescript
+// Visit time checked against client opening/closing hours
+const visitHour = visitDate.getHours();
+const visitMinutes = visitDate.getMinutes();
+const visitTimeInMinutes = visitHour * 60 + visitMinutes;
+
+// Parse client hours (e.g., "09:00:00" → 540 minutes)
+const openingMinutes = parseTimeToMinutes(client.opening_time);
+const closingMinutes = parseTimeToMinutes(client.closing_time);
+
+// Client excluded if visit outside hours
+if (visitTimeInMinutes < openingMinutes || visitTimeInMinutes > closingMinutes) {
+  stop.isIncluded = false; // Excluded from visit count
+}
+```
+
+**Database Columns**:
+```sql
+ALTER TABLE clients
+  ADD COLUMN opening_time TIME DEFAULT '09:00:00',
+  ADD COLUMN closing_time TIME DEFAULT '17:00:00';
+
+COMMENT ON COLUMN clients.opening_time IS 'Client opening time (format HH:MM:SS). Visits must be scheduled after this time.';
+COMMENT ON COLUMN clients.closing_time IS 'Client closing time (format HH:MM:SS). Visits must be scheduled before this time.';
+```
+
+**Impact on Routes**:
+
+- Excluded clients appear in timeline but don't count as visits
+- `prospectsExcluded` and `clientsOutsideOpeningHours` returned in API response
+- Frontend shows warning toast with excluded client names
+- Route statistics only count `isIncluded: true` stops
+
+---
+
 ## Performance Optimizations
 
 ### Indexes
@@ -280,6 +337,10 @@ ORDER BY visit_count DESC;
 2. **002_enable_postgis.sql** - Spatial extension + geometry column
 3. **003_create_routes_table.sql** - Routes with metadata
 4. **004_create_route_stops_table.sql** - Stop sequences with cascade deletes
+5. **006_add_route_advanced_settings.sql** - Lunch breaks and vehicle type
+6. **007_verify_advanced_settings.sql** - Verification queries
+7. **008_add_optimization_method.sql** - Optimization method column
+8. **009_add_opening_hours.sql** - Client opening/closing hours
 
 **Cascades**:
 - Delete user → Delete all clients/routes

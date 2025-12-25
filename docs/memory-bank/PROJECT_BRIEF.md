@@ -43,15 +43,21 @@ The system assumes users have an existing client base, plan single-day routes in
 | `Optimization` | Algorithmic reordering of stops to minimize travel time | Sequencing, Route Solving |
 | `Suggested Client` | A client identified as being near the planned route | Route Candidate |
 | `Visit Duration` | Expected time spent at a client location | Stop Time, Dwell Time |
+| `Opening Hours` | Time window when a client is available for visits (default 9h-17h) | Business Hours, Availability Window |
 
 ## Features & Use-cases
 
 - Import client database from CSV with automatic address geocoding
 - Manage client list with add/edit/delete capabilities
 - Configure route parameters with start/end locations and time windows
+- **Auto-optimize routes** with automatic client discovery along path
+- **Opening hours validation** - exclude clients visited outside business hours (9h-17h)
 - Get intelligent client suggestions based on spatial proximity to route
 - Generate optimized visit sequence minimizing total travel time
+- **Lunch break scheduling** with configurable time and duration
+- **Vehicle type selection** (driving, bicycling, walking)
 - View route on interactive map with markers and polylines
+- **Route timeline display** with client names, addresses, and estimated arrival times
 - Export route to Google Maps for navigation
 - Access route history and saved routes
 

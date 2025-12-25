@@ -427,12 +427,23 @@ export default function RoutesPage() {
             <h1 className="text-3xl font-bold text-gray-900">Your Routes</h1>
             <p className="text-gray-600 mt-1">Manage and view all your optimized routes</p>
           </div>
-          <Link
-            href="/dashboard/routes/new"
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap"
-          >
-            New Route
-          </Link>
+
+          {/* Navigation buttons */}
+          <div className="flex gap-3">
+            <Link
+              href="/dashboard/routes/new"
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium whitespace-nowrap"
+            >
+              Création Manuelle
+            </Link>
+            <Link
+              href="/dashboard/routes/auto-new"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap flex items-center gap-2"
+            >
+              Création Automatique
+              <span className="text-yellow-300">✨</span>
+            </Link>
+          </div>
         </div>
 
         {isLoading ? (
