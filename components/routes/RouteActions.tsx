@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { Route, RouteStop } from '@/lib/types';
@@ -32,11 +32,14 @@ function generateShareUrl(routeId: string, baseUrl: string): string {
 
 export function RouteActions({ route, stops }: RouteActionsProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
   const router = useRouter();
 
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const googleMapsUrl = generateGoogleMapsUrl(route, stops);
-  const shareUrl = generateShareUrl(route.id, baseUrl);
+
+  useEffect(() => {
+    setShareUrl(generateShareUrl(route.id, window.location.origin));
+  }, [route.id]);
 
   const handleExportToGoogleMaps = () => {
     try {
@@ -133,7 +136,7 @@ export function RouteActions({ route, stops }: RouteActionsProps) {
           >
             Google Maps URL
           </a>
-          <div className="text-gray-500 truncate">Share URL: {shareUrl}</div>
+          <div className="text-gray-500 truncate">Share URL: {shareUrl || '/dashboard/routes/' + route.id}</div>
         </div>
       </div>
     </div>
