@@ -87,6 +87,9 @@ async function RouteDetail({ routeId }: { routeId: string }) {
       totalDurationMinutes: routeData.total_duration_minutes,
       totalVisits: routeData.total_visits,
       skippedClientsCount: 0,
+      lunchBreakStartTime: routeData.lunch_break_start_time,
+      lunchBreakDurationMinutes: routeData.lunch_break_duration_minutes,
+      vehicleType: routeData.vehicle_type as any,
       createdAt: routeData.created_at,
     };
 
@@ -104,6 +107,7 @@ async function RouteDetail({ routeId }: { routeId: string }) {
       distanceFromPrevious: stop.distance_from_previous_km,
       visitDuration: stop.visit_duration_minutes,
       isIncluded: stop.is_included,
+      stopType: stop.stop_type,
     }));
 
     const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!;

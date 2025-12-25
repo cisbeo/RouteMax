@@ -1,5 +1,7 @@
 export type { Database } from './database';
 
+export type VehicleType = 'driving' | 'bicycling' | 'walking';
+
 export interface Client {
   id: string;
   name: string;
@@ -25,6 +27,9 @@ export interface Route {
   totalDurationMinutes: number | null;
   totalVisits: number;
   skippedClientsCount?: number;
+  lunchBreakStartTime?: string | null;
+  lunchBreakDurationMinutes?: number | null;
+  vehicleType?: VehicleType;
   createdAt: string;
 }
 
@@ -48,6 +53,7 @@ export interface RouteStop {
   distanceFromPrevious: number;
   visitDuration: number;
   isIncluded: boolean;
+  stopType?: string;
 }
 
 export interface SuggestedClient extends Client {

@@ -17,6 +17,9 @@ const optimizeSchema = z.object({
   endDatetime: z.string().datetime(),
   clientIds: z.array(z.string().uuid()).min(1).max(25),
   visitDurationMinutes: z.number().min(5).max(120).optional().default(20),
+  lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().nullable(),
+  lunchBreakDurationMinutes: z.number().min(15).max(180).optional().nullable(),
+  vehicleType: z.enum(['driving', 'bicycling', 'walking']).optional().default('driving'),
 });
 
 interface Stop {
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         params: {
           origins,
           destinations,
-          mode: 'driving',
+          mode: validated.vehicleType as any,
           key: process.env.GOOGLE_MAPS_API_KEY_SERVER!,
         },
         timeout: 10000,
@@ -213,6 +216,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         total_distance_km: totalDistanceKm,
         total_duration_minutes: Math.round(totalDurationMinutes),
         total_visits: totalVisits,
+        lunch_break_start_time: validated.lunchBreakStartTime,
+        lunch_break_duration_minutes: validated.lunchBreakDurationMinutes,
+        vehicle_type: validated.vehicleType,
         optimization_metadata: {
           method: 'simple_order',
           note: 'Clients ordered as selected without optimization',
@@ -233,6 +239,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const routeStops: Database['public']['Tables']['route_stops']['Insert'][] = [];
 
     let currentTime = new Date(startDatetime);
+    let lunchBreakInserted = false;
+
+    // Parse lunch break target time if provided
+    let lunchBreakTargetTime: Date | null = null;
+    if (validated.lunchBreakStartTime && validated.lunchBreakDurationMinutes) {
+      const [hours, minutes] = validated.lunchBreakStartTime.split(':').map(Number);
+      lunchBreakTargetTime = new Date(currentTime);
+      lunchBreakTargetTime.setHours(hours, minutes, 0, 0);
+    }
 
     // Add origin as first stop
     routeStops.push({
@@ -248,6 +263,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       distance_from_previous_km: 0,
       visit_duration_minutes: 0,
       is_included: true,
+      stop_type: 'start',
     });
 
     // Add client stops in order
@@ -268,8 +284,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const legDistanceKm = legData.distance / 1000;
 
       currentTime = new Date(currentTime.getTime() + legDurationSeconds * 1000);
-      const arrivalTime = new Date(currentTime.getTime());
-      const departureTime = new Date(currentTime.getTime() + visitDurationMinutes * 60 * 1000);
+      let arrivalTime = new Date(currentTime.getTime());
+
+      // Check if lunch break should be inserted BEFORE this stop
+      if (
+        !lunchBreakInserted &&
+        lunchBreakTargetTime &&
+        validated.lunchBreakDurationMinutes &&
+        arrivalTime >= lunchBreakTargetTime
+      ) {
+        // Get location of previous stop for lunch break
+        const prevStop = routeStops[routeStops.length - 1];
+
+        // Insert lunch break stop
+        routeStops.push({
+          route_id: routeData.id,
+          client_id: null,
+          address: 'Lunch Break',
+          lat: prevStop.lat,
+          lng: prevStop.lng,
+          stop_order: routeStops.length,
+          estimated_arrival: lunchBreakTargetTime.toISOString(),
+          estimated_departure: new Date(
+            lunchBreakTargetTime.getTime() + validated.lunchBreakDurationMinutes * 60 * 1000
+          ).toISOString(),
+          duration_from_previous_minutes: 0,
+          distance_from_previous_km: 0,
+          visit_duration_minutes: validated.lunchBreakDurationMinutes,
+          is_included: true,
+          stop_type: 'break',
+        });
+
+        // Advance currentTime by break duration
+        currentTime = new Date(
+          lunchBreakTargetTime.getTime() + validated.lunchBreakDurationMinutes * 60 * 1000
+        );
+        lunchBreakInserted = true;
+
+        // Recalculate arrival at current client after break
+        arrivalTime = new Date(currentTime.getTime());
+      }
+
+      const departureTime = new Date(arrivalTime.getTime() + visitDurationMinutes * 60 * 1000);
 
       routeStops.push({
         route_id: routeData.id,
@@ -277,13 +333,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         address: client.name,
         lat: client.lat,
         lng: client.lng,
-        stop_order: i + 1,
+        stop_order: routeStops.length,
         estimated_arrival: arrivalTime.toISOString(),
         estimated_departure: departureTime.toISOString(),
         duration_from_previous_minutes: Math.round(legDurationSeconds / 60),
         distance_from_previous_km: Math.round(legDistanceKm * 100) / 100,
         visit_duration_minutes: visitDurationMinutes,
         is_included: true,
+        stop_type: 'client',
       });
 
       // Update current time to departure time for next iteration
@@ -304,13 +361,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         address: endAddress,
         lat: endLat,
         lng: endLng,
-        stop_order: clientsData.length + 1,
+        stop_order: routeStops.length,
         estimated_arrival: currentTime.toISOString(),
         estimated_departure: endDatetime,
         duration_from_previous_minutes: Math.round(finalLegDurationSeconds / 60),
         distance_from_previous_km: Math.round(finalLegDistanceKm * 100) / 100,
         visit_duration_minutes: 0,
         is_included: true,
+        stop_type: 'end',
       });
     }
 
@@ -363,6 +421,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       totalDurationMinutes: createdRoute.total_duration_minutes,
       totalVisits: createdRoute.total_visits,
       skippedClientsCount: 0, // No clients skipped in simplified approach
+      lunchBreakStartTime: createdRoute.lunch_break_start_time,
+      lunchBreakDurationMinutes: createdRoute.lunch_break_duration_minutes,
+      vehicleType: createdRoute.vehicle_type as any,
       createdAt: createdRoute.created_at,
     };
 
@@ -380,6 +441,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       distanceFromPrevious: stop.distance_from_previous_km,
       visitDuration: stop.visit_duration_minutes,
       isIncluded: stop.is_included,
+      stopType: stop.stop_type,
     }));
 
     return NextResponse.json(

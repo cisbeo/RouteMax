@@ -166,17 +166,66 @@ Route with 10 clients, 20 min visits:
 - Total: 260 minutes (4h 20min)
 ```
 
+### Lunch Break Scheduling
+
+**Location**: Route creation form → **⚙️ Advanced Settings** → **Lunch Break**
+
+**How to enable**:
+1. Check **Lunch Break** checkbox
+2. Set **Start Time** (e.g., 12:00)
+3. Adjust **Duration** slider (15-180 minutes)
+
+**How it works**:
+- RouteMax inserts a lunch break stop at the scheduled time
+- Break is placed at the location of the previous stop
+- All subsequent stops are shifted by the break duration
+- Break appears in timeline with ☕ icon
+
+**Example**:
+```
+11:45 AM - Client 5: Le Café
+12:05 PM   Depart (20 min visit)
+           [Lunch break scheduled at 12:00]
+12:05 PM - 🔄 Lunch Break (60 min)
+01:05 PM   Resume route
+           ↓ 10 min drive (4.2 km)
+01:15 PM - Client 6: Boulangerie Moderne
+```
+
+**Notes**:
+- If break time is before first client, break is skipped
+- If break time is after last client, break is skipped
+- Total route duration includes break time
+
+### Vehicle Type Selection
+
+**Location**: Route creation form → **⚙️ Advanced Settings** → **Vehicle Type**
+
+**Options**:
+- 🚗 **Car** (default): Standard driving routes, highways allowed
+- 🚴 **Bike**: Bicycle-friendly routes, bike lanes preferred
+- 🚶 **Walking**: Pedestrian paths only, shortest walking distance
+
+**How it works**:
+- Affects Google Distance Matrix API calculations
+- Changes route visualization on map
+- Influences estimated travel times and distances
+
+**Use Cases**:
+- **Car**: Standard delivery routes, sales visits
+- **Bike**: Urban areas, eco-friendly delivery, short distances
+- **Walking**: Dense urban areas, pedestrian zones
+
+**Example Differences**:
+```
+Same route, different vehicles:
+
+🚗 Car:      45 km, 60 min travel time
+🚴 Bike:     42 km, 120 min travel time (bike lanes)
+🚶 Walking:  38 km, 480 min travel time (shortcuts)
+```
+
 ### Coming Soon Features
-
-**Lunch Break** (Planned)
-- Schedule mandatory break time
-- Route splits around break
-- Ensures compliance with work regulations
-
-**Vehicle Type** (Planned)
-- Car (current default)
-- Bike (slower speeds, different routing)
-- Walking (pedestrian-only paths)
 
 **Working Hours** (Planned)
 - Define daily work schedule
@@ -410,7 +459,7 @@ A: No. RouteMax requires internet connection for maps, geocoding, and route calc
 
 ## Version History
 
-### v0.1.0 (Current)
+### v0.2.0 (Current)
 - ✅ Client import (CSV)
 - ✅ Basic route creation
 - ✅ Google Maps integration
@@ -418,11 +467,11 @@ A: No. RouteMax requires internet connection for maps, geocoding, and route calc
 - ✅ Timeline view
 - ✅ Configurable visit duration
 - ✅ Magic link authentication
+- ✅ **Lunch break scheduling**
+- ✅ **Vehicle type selection (car, bike, walking)**
 
 ### Coming Soon
 - 🔄 Route optimization (TSP solver)
-- 🔄 Lunch break scheduling
-- 🔄 Vehicle type selection
 - 🔄 Per-client visit durations
 - 🔄 Route editing
 - 🔄 Export to PDF/Excel

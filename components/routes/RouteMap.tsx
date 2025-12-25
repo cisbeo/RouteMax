@@ -92,12 +92,27 @@ export function RouteMap({
       stopover: true,
     }));
 
+    // Map vehicle type to Google Maps TravelMode
+    const getTravelMode = (): google.maps.TravelMode => {
+      const vehicleType = route.vehicleType || 'driving';
+      switch (vehicleType) {
+        case 'driving':
+          return window.google.maps.TravelMode.DRIVING;
+        case 'bicycling':
+          return window.google.maps.TravelMode.BICYCLING;
+        case 'walking':
+          return window.google.maps.TravelMode.WALKING;
+        default:
+          return window.google.maps.TravelMode.DRIVING;
+      }
+    };
+
     directionsService.route(
       {
         origin: { lat: route.startLat, lng: route.startLng },
         destination: { lat: route.endLat, lng: route.endLng },
         waypoints,
-        travelMode: window.google.maps.TravelMode.DRIVING,
+        travelMode: getTravelMode(),
         optimizeWaypoints: false, // Already optimized by our backend
       },
       (result, status) => {

@@ -80,7 +80,44 @@ export function RouteTimeline({
         {includedStops.map((stop, index) => {
           const isLast = index === includedStops.length - 1;
           const isSelected = selectedStopId === stop.id;
+          const isBreak = stop.stopType === 'break';
 
+          // Lunch break display
+          if (isBreak) {
+            return (
+              <div key={stop.id}>
+                <div className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center border-2 border-yellow-400">
+                      <span className="text-xl">☕</span>
+                    </div>
+                    {!isLast && <div className="w-1 h-12 bg-gray-200 my-2" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">Lunch Break</span>
+                        <span className="text-sm text-gray-600">({formatMinutesToTime(stop.visitDuration)})</span>
+                      </div>
+                      {stop.estimatedArrival && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(stop.estimatedArrival).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })} - {new Date(stop.estimatedDeparture!).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Regular client stop display
           return (
             <div key={stop.id}>
               <div

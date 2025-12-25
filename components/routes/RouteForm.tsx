@@ -28,6 +28,14 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
   const [visitDurationMinutes, setVisitDurationMinutes] = useState(20);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
+  // Lunch break settings
+  const [lunchBreakEnabled, setLunchBreakEnabled] = useState(false);
+  const [lunchBreakStartTime, setLunchBreakStartTime] = useState('12:00');
+  const [lunchBreakDurationMinutes, setLunchBreakDurationMinutes] = useState(60);
+
+  // Vehicle type
+  const [vehicleType, setVehicleType] = useState<'driving' | 'bicycling' | 'walking'>('driving');
+
   const [suggestions, setSuggestions] = useState<SuggestedClient[]>([]);
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [skippedClients, setSkippedClients] = useState<SkippedClientsInfo | null>(null);
@@ -164,6 +172,9 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
           endDatetime: new Date(endDateTime).toISOString(),
           clientIds: Array.from(selectedClients),
           visitDurationMinutes,
+          lunchBreakStartTime: lunchBreakEnabled ? lunchBreakStartTime : null,
+          lunchBreakDurationMinutes: lunchBreakEnabled ? lunchBreakDurationMinutes : null,
+          vehicleType,
         }),
       });
 
@@ -382,31 +393,67 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
                   </p>
                 </div>
 
-                {/* Future: Break Time */}
-                <div className="opacity-50 cursor-not-allowed">
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Lunch Break <span className="text-xs">(Coming soon)</span>
+                {/* Lunch Break */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={lunchBreakEnabled}
+                      onChange={(e) => setLunchBreakEnabled(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    Lunch Break
                   </label>
-                  <input
-                    type="time"
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100"
-                  />
+
+                  {lunchBreakEnabled && (
+                    <div className="space-y-3 ml-6">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                        <input
+                          type="time"
+                          value={lunchBreakStartTime}
+                          onChange={(e) => setLunchBreakStartTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Duration</label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="15"
+                            max="180"
+                            step="15"
+                            value={lunchBreakDurationMinutes}
+                            onChange={(e) => setLunchBreakDurationMinutes(parseInt(e.target.value))}
+                            className="flex-1"
+                          />
+                          <span className="text-sm font-semibold text-gray-900 w-20 text-right">
+                            {lunchBreakDurationMinutes} min
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Future: Vehicle Type */}
-                <div className="opacity-50 cursor-not-allowed">
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Vehicle Type <span className="text-xs">(Coming soon)</span>
+                {/* Vehicle Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vehicle Type
                   </label>
                   <select
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100"
+                    value={vehicleType}
+                    onChange={(e) => setVehicleType(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
                   >
-                    <option>Car</option>
-                    <option>Bike</option>
-                    <option>Walking</option>
+                    <option value="driving">🚗 Car</option>
+                    <option value="bicycling">🚴 Bike</option>
+                    <option value="walking">🚶 Walking</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Affects route calculation and speed estimates
+                  </p>
                 </div>
               </div>
             )}
