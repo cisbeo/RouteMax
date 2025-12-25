@@ -24,11 +24,16 @@ graph TD
 
 ## API Routes Structure
 
-Current structure (directories exist but no route handlers yet):
+**8 fully implemented endpoints**:
 
-- `@app/api/clients/` - Client CRUD operations
-- `@app/api/routes/` - Route planning and optimization
-- `@app/api/geocode/` - Address geocoding utility
+- `@app/api/auth/logout/` - POST user logout
+- `@app/api/clients/route.ts` - GET list clients, POST create client
+- `@app/api/clients/[id]/route.ts` - GET/PUT/DELETE specific client
+- `@app/api/clients/import/route.ts` - POST CSV import with geocoding
+- `@app/api/routes/user/route.ts` - GET user's routes list
+- `@app/api/routes/suggest/route.ts` - POST spatial client suggestions
+- `@app/api/routes/optimize/route.ts` - POST create optimized route
+- `@app/api/routes/[id]/route.ts` - GET/DELETE specific route
 
 **WHY**: Next.js App Router convention - each directory represents a route segment
 
@@ -113,11 +118,11 @@ graph LR
 
 ### Google Maps Services
 
-Planned integrations (not yet implemented):
+**Implemented integrations**:
 
-- **Geocoding API** - Convert addresses to coordinates
-- **Routes Optimization API** - Multi-stop route optimization
-- **Places API** - Address autocomplete
+- **Geocoding API** - Address to coordinates conversion (via `@lib/utils/geocode.ts`)
+- **Routes Optimization API** - Multi-stop route optimization (via `/api/routes/optimize`)
+- **Places API** - Address autocomplete (client-side)
 
 Package: `@googlemaps/google-maps-services-js` v3
 
@@ -201,11 +206,11 @@ Zod 4 schemas for:
 
 ## Error Handling
 
-Planned pattern:
+**Implemented pattern**:
 - Try-catch all async operations
-- Return structured error responses
-- Log errors server-side
-- User-friendly messages client-side
+- Return structured error responses with HTTP status codes
+- Retry logic for external APIs (`@lib/utils/retry.ts`)
+- User-friendly messages via toast notifications (Sonner)
 
 **WHY**: Prevent unhandled promise rejections and expose minimal error details
 
@@ -221,12 +226,19 @@ Planned pattern:
 
 ## Development Status
 
-Current state: **Infrastructure Ready, No Route Handlers**
+Current state: **Production Ready - Fully Implemented**
 
-- API directory structure created
-- Database schema deployed
-- Auth middleware configured
-- Type definitions complete
-- No actual API endpoints implemented yet
+- ✅ 8 API endpoints fully implemented
+- ✅ Database schema deployed (6 migrations)
+- ✅ Auth middleware configured
+- ✅ Type definitions complete
+- ✅ Google Maps integration (Geocoding, Routes API)
+- ✅ CSV import with geocoding
+- ✅ Spatial queries for client suggestions
+- ✅ Route optimization with advanced settings
+- ✅ Error handling and retry logic
 
-Next: Implement route handlers starting with `POST /api/clients/import`
+**Recent features** (latest commit):
+
+- Lunch break scheduling
+- Vehicle type selection
