@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /.env*
+Disallow: /private
+
+Sitemap: https://routemax.app/sitemap.xml
+
+User-agent: Googlebot
+Allow: /
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
