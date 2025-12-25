@@ -1,5 +1,6 @@
 'use client';
 
+import { format } from 'date-fns';
 import type { Route, RouteStop } from '@/lib/types';
 
 interface RouteTimelineProps {
@@ -71,7 +72,7 @@ export function RouteTimeline({
             <h3 className="font-semibold text-gray-900">Start Location</h3>
             <p className="text-sm text-gray-600">{route.startAddress}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {new Date(route.startDatetime).toLocaleString()}
+              {format(new Date(route.startDatetime), 'dd/MM/yyyy HH:mm')}
             </p>
           </div>
         </div>
@@ -101,13 +102,7 @@ export function RouteTimeline({
                       </div>
                       {stop.estimatedArrival && (
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(stop.estimatedArrival).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })} - {new Date(stop.estimatedDeparture!).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {format(new Date(stop.estimatedArrival), 'HH:mm')} - {format(new Date(stop.estimatedDeparture!), 'HH:mm')}
                         </p>
                       )}
                     </div>
@@ -144,10 +139,7 @@ export function RouteTimeline({
 
                   {stop.estimatedArrival && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Arrival: {new Date(stop.estimatedArrival).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      Arrival: {format(new Date(stop.estimatedArrival), 'HH:mm')}
                     </p>
                   )}
 
@@ -186,7 +178,7 @@ export function RouteTimeline({
             <h3 className="font-semibold text-gray-900">End Location</h3>
             <p className="text-sm text-gray-600">{route.endAddress}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {route.endDatetime ? new Date(route.endDatetime).toLocaleString() : 'Not specified'}
+              {route.endDatetime ? format(new Date(route.endDatetime), 'dd/MM/yyyy HH:mm') : 'Not specified'}
             </p>
           </div>
         </div>
