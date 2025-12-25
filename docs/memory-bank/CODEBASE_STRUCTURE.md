@@ -72,13 +72,14 @@ RouteMax/
 │       └── validation.ts       Zod validation schemas
 │
 ├── @supabase/                   Database configuration
-│   ├── @supabase/migrations/    SQL migration files (6 files)
+│   ├── @supabase/migrations/    SQL migration files (7 files)
 │   │   ├── 001_create_clients_table.sql
 │   │   ├── 002_enable_postgis.sql
 │   │   ├── 003_create_routes_table.sql
 │   │   ├── 004_create_route_stops_table.sql
 │   │   ├── 006_add_route_advanced_settings.sql
-│   │   └── 007_verify_advanced_settings.sql (not committed)
+│   │   ├── 007_verify_advanced_settings.sql (not committed)
+│   │   └── 008_add_optimization_method.sql
 │   └── @supabase/README.md      Database setup guide
 │
 ├── @public/                     Static assets

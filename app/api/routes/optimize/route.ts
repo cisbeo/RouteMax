@@ -630,16 +630,16 @@ async function createOptimizedRoute(
     }
 
     // Extract optimized waypoint order
-    const route = optimizationResponse.routes?.[0];
-    if (!route) {
+    const googleRoute = optimizationResponse.routes?.[0];
+    if (!googleRoute) {
       return NextResponse.json(
         { error: 'No route found from optimization API' },
         { status: 500 }
       );
     }
 
-    const optimizedOrder = route.optimizedIntermediateWaypointIndex || [];
-    const legs = route.legs || [];
+    const optimizedOrder = googleRoute.optimizedIntermediateWaypointIndex || [];
+    const legs = googleRoute.legs || [];
 
     // Reorder clients according to optimization
     const orderedClients = optimizedOrder.map((index: number) => clientsData[index]);

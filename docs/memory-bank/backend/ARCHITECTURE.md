@@ -229,16 +229,18 @@ Zod 4 schemas for:
 Current state: **Production Ready - Fully Implemented**
 
 - ✅ 8 API endpoints fully implemented
-- ✅ Database schema deployed (6 migrations)
+- ✅ Database schema deployed (7 migrations)
 - ✅ Auth middleware configured
 - ✅ Type definitions complete
-- ✅ Google Maps integration (Geocoding, Routes API)
+- ✅ Google Maps integration (Geocoding, Routes API v2)
 - ✅ CSV import with geocoding
 - ✅ Spatial queries for client suggestions
-- ✅ Route optimization with advanced settings
+- ✅ Route optimization with dual methods (simple_order + optimized)
 - ✅ Error handling and retry logic
 
 **Recent features** (latest commit):
 
+- Route optimization method selection (simple_order vs optimized)
+- Google Routes API v2 integration with TSP optimization
 - Lunch break scheduling
 - Vehicle type selection
