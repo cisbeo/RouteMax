@@ -55,6 +55,10 @@ export interface Database {
           total_distance_km: number | null;
           total_duration_minutes: number | null;
           total_visits: number;
+          lunch_break_start_time: string | null;
+          lunch_break_duration_minutes: number | null;
+          vehicle_type: string;
+          optimization_method: string;
           optimization_metadata: Record<string, unknown> | null;
           created_at: string;
           updated_at: string;
@@ -74,6 +78,10 @@ export interface Database {
           total_distance_km?: number | null;
           total_duration_minutes?: number | null;
           total_visits?: number;
+          lunch_break_start_time?: string | null;
+          lunch_break_duration_minutes?: number | null;
+          vehicle_type?: string;
+          optimization_method?: string;
           optimization_metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
@@ -93,6 +101,10 @@ export interface Database {
           total_distance_km?: number | null;
           total_duration_minutes?: number | null;
           total_visits?: number;
+          lunch_break_start_time?: string | null;
+          lunch_break_duration_minutes?: number | null;
+          vehicle_type?: string;
+          optimization_method?: string;
           optimization_metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
@@ -113,6 +125,7 @@ export interface Database {
           distance_from_previous_km: number;
           visit_duration_minutes: number;
           is_included: boolean;
+          stop_type: string;
           created_at: string;
         };
         Insert: {
@@ -129,6 +142,7 @@ export interface Database {
           distance_from_previous_km?: number;
           visit_duration_minutes?: number;
           is_included?: boolean;
+          stop_type?: string;
           created_at?: string;
         };
         Update: {
@@ -145,6 +159,7 @@ export interface Database {
           distance_from_previous_km?: number;
           visit_duration_minutes?: number;
           is_included?: boolean;
+          stop_type?: string;
           created_at?: string;
         };
       };

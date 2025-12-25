@@ -36,6 +36,9 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
   // Vehicle type
   const [vehicleType, setVehicleType] = useState<'driving' | 'bicycling' | 'walking'>('driving');
 
+  // Optimization method
+  const [optimizationMethod, setOptimizationMethod] = useState<'simple_order' | 'optimized'>('simple_order');
+
   const [suggestions, setSuggestions] = useState<SuggestedClient[]>([]);
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [skippedClients, setSkippedClients] = useState<SkippedClientsInfo | null>(null);
@@ -175,6 +178,7 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
           lunchBreakStartTime: lunchBreakEnabled ? lunchBreakStartTime : null,
           lunchBreakDurationMinutes: lunchBreakEnabled ? lunchBreakDurationMinutes : null,
           vehicleType,
+          optimizationMethod,
         }),
       });
 
@@ -454,6 +458,51 @@ export function RouteForm({ googleMapsApiKey }: RouteFormProps) {
                   <p className="text-xs text-gray-500 mt-1">
                     Affects route calculation and speed estimates
                   </p>
+                </div>
+
+                {/* Optimization Method Toggle */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Méthode d'optimisation
+                  </label>
+                  <div className="space-y-3">
+                    <label className="flex items-start p-3 border-2 rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="optimization-method"
+                        value="simple_order"
+                        checked={optimizationMethod === 'simple_order'}
+                        onChange={(e) => setOptimizationMethod(e.target.value as any)}
+                        className="mt-1 w-4 h-4 text-blue-600"
+                      />
+                      <div className="ml-3 flex-1">
+                        <div className="font-medium text-sm">Ordre simple (Gratuit)</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          Visite les clients dans l'ordre de sélection.
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start p-3 border-2 rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="optimization-method"
+                        value="optimized"
+                        checked={optimizationMethod === 'optimized'}
+                        onChange={(e) => setOptimizationMethod(e.target.value as any)}
+                        className="mt-1 w-4 h-4 text-blue-600"
+                      />
+                      <div className="ml-3 flex-1">
+                        <div className="font-medium text-sm">Route optimisée IA (Premium)</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          Réordonne automatiquement pour la route la plus rapide.
+                        </div>
+                        <div className="text-xs text-amber-600 mt-1 font-medium">
+                          ⚠️ Coût API plus élevé (~0,01€/route)
+                        </div>
+                      </div>
+                    </label>
+                  </div>
                 </div>
               </div>
             )}

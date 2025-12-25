@@ -1,6 +1,7 @@
 export type { Database } from './database';
 
 export type VehicleType = 'driving' | 'bicycling' | 'walking';
+export type OptimizationMethod = 'simple_order' | 'optimized';
 
 export interface Client {
   id: string;
@@ -30,6 +31,7 @@ export interface Route {
   lunchBreakStartTime?: string | null;
   lunchBreakDurationMinutes?: number | null;
   vehicleType?: VehicleType;
+  optimizationMethod?: OptimizationMethod;
   createdAt: string;
 }
 
