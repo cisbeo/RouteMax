@@ -44,8 +44,8 @@ function RoutesListClient({ initialRoutes }: RoutesListClientProps) {
   const [routes, setRoutes] = useState<RouteListItem[]>(initialRoutes);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'distance' | 'duration' | 'stops'>('date');
-  const [filterDistance, setFilterDistance] = useState<{ min: number; max: number }>({ min: 0, max: 1000 });
-  const [filterStops, setFilterStops] = useState<{ min: number; max: number }>({ min: 0, max: 100 });
+  const [filterDistance, setFilterDistance] = useState<{ min: number; max: number }>({ min: 0, max: 10000 });
+  const [filterStops, setFilterStops] = useState<{ min: number; max: number }>({ min: 0, max: 1000 });
   const [selectedRoutes, setSelectedRoutes] = useState<Set<string>>(new Set());
 
   const filteredAndSortedRoutes = useMemo(() => {
@@ -53,7 +53,21 @@ function RoutesListClient({ initialRoutes }: RoutesListClientProps) {
       const matchesSearch = route.name.toLowerCase().includes(searchTerm.toLowerCase());
       const distance = route.totalDistanceKm || 0;
       const matchesDistance = distance >= filterDistance.min && distance <= filterDistance.max;
-      const matchesStops = route.stopCount >= filterStops.min && route.stopCount <= filterStops.max;
+      const stops = route.stopCount || 0;
+      const matchesStops = stops >= filterStops.min && stops <= filterStops.max;
+
+      // Debug: log routes that are filtered out
+      if (!matchesDistance || !matchesStops) {
+        console.log(`Filtered out: ${route.name}`, {
+          distance,
+          matchesDistance,
+          filterDistance,
+          stops,
+          matchesStops,
+          filterStops,
+        });
+      }
+
       return matchesSearch && matchesDistance && matchesStops;
     });
 
@@ -406,8 +420,11 @@ export default function RoutesPage() {
           throw new Error('Failed to fetch routes');
         }
 
-        const { routes: fetchedRoutes } = await response.json();
-        setRoutes(fetchedRoutes);
+        const data = await response.json();
+        console.log('API response:', JSON.stringify(data, null, 2));
+        console.log('Routes count:', data.routes?.length);
+        console.log('Pagination:', data.pagination);
+        setRoutes(data.routes || []);
       } catch (err) {
         console.error('Routes list error:', err);
         setError('Failed to load routes');

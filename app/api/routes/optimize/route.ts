@@ -15,16 +15,29 @@ const optimizeSchema = z.object({
   endLat: z.number().min(-90).max(90),
   endLng: z.number().min(-180).max(180),
   endDatetime: z.string().datetime(),
-  clientIds: z.array(z.string().uuid()).min(1).max(25),
+  // Either clientIds OR targetAddress/targetLat/targetLng must be provided
+  clientIds: z.array(z.string().uuid()).max(25).optional().default([]),
+  // Custom target address (used when clientIds is empty)
+  targetAddress: z.string().min(1).optional(),
+  targetLat: z.number().min(-90).max(90).optional(),
+  targetLng: z.number().min(-180).max(180).optional(),
   visitDurationMinutes: z.number().min(5).max(120).optional().default(20),
   lunchBreakStartTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional().nullable(),
   lunchBreakDurationMinutes: z.number().min(15).max(180).optional().nullable(),
   vehicleType: z.enum(['driving', 'bicycling', 'walking']).optional().default('driving'),
   optimizationMethod: z.enum(['simple_order', 'optimized']).optional().default('simple_order'),
-});
+}).refine(
+  (data) => {
+    // Must have at least one client OR a target address
+    const hasClients = data.clientIds && data.clientIds.length > 0;
+    const hasTargetAddress = data.targetAddress && data.targetLat !== undefined && data.targetLng !== undefined;
+    return hasClients || hasTargetAddress;
+  },
+  { message: 'Either clientIds or target address (targetAddress, targetLat, targetLng) must be provided' }
+);
 
 interface Stop {
-  type: 'start' | 'client' | 'end';
+  type: 'start' | 'client' | 'target' | 'end';
   lat: number;
   lng: number;
   address: string;
@@ -96,38 +109,49 @@ async function createSimpleOrderRoute(
       endLng,
       endDatetime,
       clientIds,
+      targetAddress,
+      targetLat,
+      targetLng,
       visitDurationMinutes,
     } = validated;
 
-    // Verify all client IDs belong to the user
-    const { data: rawClientsData, error: clientsError } = await supabase
-      .from('clients')
-      .select('id, name, lat, lng')
-      .eq('user_id', user.id)
-      .in('id', clientIds);
+    // Determine if using clients or custom target address
+    const hasClients = clientIds && clientIds.length > 0;
+    const hasTargetAddress = targetAddress && targetLat !== undefined && targetLng !== undefined;
 
-    const clientsData = rawClientsData as Array<{
+    let clientsData: Array<{
       id: string;
       name: string;
       lat: number;
       lng: number;
-    }> | null;
+    }> = [];
 
-    if (clientsError || !clientsData) {
-      return NextResponse.json(
-        { error: 'Failed to fetch clients' },
-        { status: 500 }
-      );
+    // Fetch clients if using clientIds
+    if (hasClients) {
+      const { data: rawClientsData, error: clientsError } = await supabase
+        .from('clients')
+        .select('id, name, lat, lng')
+        .eq('user_id', user.id)
+        .in('id', clientIds);
+
+      clientsData = rawClientsData as typeof clientsData || [];
+
+      if (clientsError || !rawClientsData) {
+        return NextResponse.json(
+          { error: 'Failed to fetch clients' },
+          { status: 500 }
+        );
+      }
+
+      if (clientsData.length !== clientIds.length) {
+        return NextResponse.json(
+          { error: 'One or more clients not found or access denied' },
+          { status: 403 }
+        );
+      }
     }
 
-    if (clientsData.length !== clientIds.length) {
-      return NextResponse.json(
-        { error: 'One or more clients not found or access denied' },
-        { status: 403 }
-      );
-    }
-
-    // Build stops array: start → clients (in order) → end
+    // Build stops array: start → clients/target → end
     const routeStopsInput: Stop[] = [
       {
         type: 'start',
@@ -135,20 +159,35 @@ async function createSimpleOrderRoute(
         lng: startLng,
         address: startAddress,
       },
-      ...clientsData.map((client) => ({
-        type: 'client' as const,
-        lat: client.lat,
-        lng: client.lng,
-        address: client.name,
-        clientId: client.id,
-      })),
-      {
-        type: 'end',
-        lat: endLat,
-        lng: endLng,
-        address: endAddress,
-      },
     ];
+
+    // Add either clients or custom target
+    if (hasClients) {
+      routeStopsInput.push(
+        ...clientsData.map((client) => ({
+          type: 'client' as const,
+          lat: client.lat,
+          lng: client.lng,
+          address: client.name,
+          clientId: client.id,
+        }))
+      );
+    } else if (hasTargetAddress) {
+      routeStopsInput.push({
+        type: 'target' as const,
+        lat: targetLat,
+        lng: targetLng,
+        address: targetAddress,
+      });
+    }
+
+    // Add end point
+    routeStopsInput.push({
+      type: 'end',
+      lat: endLat,
+      lng: endLng,
+      address: endAddress,
+    });
 
     // Call Google Distance Matrix API
     const googleMapsClient = new GoogleMapsClient({});
@@ -233,8 +272,8 @@ async function createSimpleOrderRoute(
       totalDurationMinutes += leg.duration / 60;
     }
 
-    // All clients are included (no optimization/skipping)
-    const totalVisits = clientsData.length;
+    // All clients/targets are included (no optimization/skipping)
+    const totalVisits = hasClients ? clientsData.length : (hasTargetAddress ? 1 : 0);
 
     // Insert route into database
     const { data: routeData, error: routeError } = await (
@@ -306,10 +345,11 @@ async function createSimpleOrderRoute(
       stop_type: 'start',
     });
 
-    // Add client stops in order
-    for (let i = 0; i < clientsData.length; i++) {
-      const client = clientsData[i];
-      const legData = distanceData[i]; // i-th leg is from start/previous to client
+    // Add client/target stops in order (skip first 'start' and last 'end' from routeStopsInput)
+    const middleStops = routeStopsInput.slice(1, -1);
+    for (let i = 0; i < middleStops.length; i++) {
+      const stop = middleStops[i];
+      const legData = distanceData[i]; // i-th leg is from start/previous to this stop
 
       if (!legData) {
         console.error(`Missing distance data for leg ${i}`);
@@ -361,7 +401,7 @@ async function createSimpleOrderRoute(
         );
         lunchBreakInserted = true;
 
-        // Recalculate arrival at current client after break
+        // Recalculate arrival at current stop after break
         arrivalTime = new Date(currentTime.getTime());
       }
 
@@ -369,10 +409,10 @@ async function createSimpleOrderRoute(
 
       routeStops.push({
         route_id: routeData.id,
-        client_id: client.id,
-        address: client.name,
-        lat: client.lat,
-        lng: client.lng,
+        client_id: stop.clientId || null,
+        address: stop.address,
+        lat: stop.lat,
+        lng: stop.lng,
         stop_order: routeStops.length,
         estimated_arrival: arrivalTime.toISOString(),
         estimated_departure: departureTime.toISOString(),
@@ -380,7 +420,7 @@ async function createSimpleOrderRoute(
         distance_from_previous_km: Math.round(legDistanceKm * 100) / 100,
         visit_duration_minutes: visitDurationMinutes,
         is_included: true,
-        stop_type: 'client',
+        stop_type: stop.type === 'target' ? 'target' : 'client',
       });
 
       // Update current time to departure time for next iteration

@@ -32,7 +32,13 @@ export function RouteTimeline({
   selectedStopId,
   onStopSelect,
 }: RouteTimelineProps) {
-  const includedStops = stops.filter((stop) => stop.isIncluded).sort((a, b) => a.stopOrder - b.stopOrder);
+  // Filter out start/end stops (they're displayed separately) and keep only client/target/break stops
+  const includedStops = stops
+    .filter((stop) => stop.isIncluded && stop.stopType !== 'start' && stop.stopType !== 'end')
+    .sort((a, b) => a.stopOrder - b.stopOrder);
+
+  // Get the end stop to display its travel info
+  const endStop = stops.find((stop) => stop.stopType === 'end');
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -82,6 +88,7 @@ export function RouteTimeline({
           const isLast = index === includedStops.length - 1;
           const isSelected = selectedStopId === stop.id;
           const isBreak = stop.stopType === 'break';
+          const displayNumber = index + 1; // Start numbering at 1 for display
 
           // Lunch break display
           if (isBreak) {
@@ -129,12 +136,12 @@ export function RouteTimeline({
                         : 'bg-red-100 text-red-600 border-red-500'
                     }`}
                   >
-                    {stop.stopOrder}
+                    {displayNumber}
                   </div>
                   {!isLast && <div className="w-1 h-12 bg-gray-200 my-2" />}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{stop.clientName || 'Stop ' + stop.stopOrder}</h3>
+                  <h3 className="font-semibold text-gray-900">{stop.clientName || stop.address || `Stop ${displayNumber}`}</h3>
                   <p className="text-sm text-gray-600">{stop.address}</p>
 
                   {stop.estimatedArrival && (
@@ -177,9 +184,25 @@ export function RouteTimeline({
           <div className="flex-1">
             <h3 className="font-semibold text-gray-900">End Location</h3>
             <p className="text-sm text-gray-600">{route.endAddress}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {route.endDatetime ? format(new Date(route.endDatetime), 'dd/MM/yyyy HH:mm') : 'Not specified'}
-            </p>
+
+            {endStop?.estimatedArrival && (
+              <p className="text-xs text-gray-500 mt-1">
+                Arrival: {format(new Date(endStop.estimatedArrival), 'HH:mm')}
+              </p>
+            )}
+
+            {endStop && endStop.durationFromPrevious > 0 && (
+              <div className="mt-2 flex gap-4 text-xs text-gray-600">
+                {endStop.distanceFromPrevious > 0 && (
+                  <span className="bg-gray-100 px-2 py-1 rounded">
+                    {formatDistance(endStop.distanceFromPrevious)}
+                  </span>
+                )}
+                <span className="bg-gray-100 px-2 py-1 rounded">
+                  {formatMinutesToTime(endStop.durationFromPrevious)} drive
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

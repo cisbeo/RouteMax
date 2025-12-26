@@ -25,8 +25,8 @@ export default function DashboardLayout({
               <a href="/dashboard/routes" className="text-gray-700 hover:text-gray-900">
                 Routes
               </a>
-              <a href="/dashboard/routes/new" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                New Route
+              <a href="/dashboard/routes/simple" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                Nouvelle Tournée
               </a>
             </div>
           </div>
