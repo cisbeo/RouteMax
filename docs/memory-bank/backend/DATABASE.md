@@ -173,6 +173,58 @@ ORDER BY geom <-> ST_SetSRID(ST_MakePoint($lng, $lat), 4326)
 LIMIT 10;
 ```
 
+### Spatial RPC Functions
+
+#### `suggest_clients_along_route`
+
+Suggests clients within a corridor along a straight line (start → end).
+
+```sql
+SELECT * FROM suggest_clients_along_route(
+  p_user_id := 'uuid',
+  p_start_lng := 2.35,
+  p_start_lat := 48.85,
+  p_end_lng := 4.83,
+  p_end_lat := 45.76,
+  p_corridor_radius_m := 10000,
+  p_max_results := 30
+);
+```
+
+**Returns**: `id, name, address, lat, lng, is_active, created_at, distance_meters, score`
+
+#### `suggest_clients_along_polyline`
+
+Suggests clients within a corridor along a multi-point polyline. Used for loop routes where start === end.
+
+```sql
+SELECT * FROM suggest_clients_along_polyline(
+  p_user_id := 'uuid',
+  p_points_json := '[{"lat":48.85,"lng":2.35},{"lat":48.90,"lng":2.40},{"lat":48.85,"lng":2.35}]'::jsonb,
+  p_corridor_radius_m := 10000,
+  p_max_results := 30
+);
+```
+
+**Returns**: `id, name, address, lat, lng, is_active, created_at, distance_meters, score`
+
+**Use case**: Loop routes where commercial starts and ends at home. Builds a LineString through all waypoints and searches within corridor of the entire route.
+
+#### `suggest_clients_in_bbox`
+
+Suggests clients within a bounding box. Legacy function, replaced by polyline for loop routes.
+
+```sql
+SELECT * FROM suggest_clients_in_bbox(
+  p_user_id := 'uuid',
+  p_min_lng := 2.30,
+  p_min_lat := 48.80,
+  p_max_lng := 2.40,
+  p_max_lat := 48.90,
+  p_max_results := 30
+);
+```
+
 ---
 
 ## Row Level Security (RLS)
@@ -341,6 +393,9 @@ COMMENT ON COLUMN clients.closing_time IS 'Client closing time (format HH:MM:SS)
 6. **007_verify_advanced_settings.sql** - Verification queries
 7. **008_add_optimization_method.sql** - Optimization method column
 8. **009_add_opening_hours.sql** - Client opening/closing hours
+9. **009_add_suggest_clients_rpc.sql** - `suggest_clients_along_route` function
+10. **010_suggest_clients_bbox.sql** - `suggest_clients_in_bbox` function
+11. **011_suggest_clients_along_polyline.sql** - `suggest_clients_along_polyline` function (loop routes)
 
 **Cascades**:
 - Delete user → Delete all clients/routes

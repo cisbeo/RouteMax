@@ -5,6 +5,58 @@ import { geocodeAddress } from '@/lib/utils/geocode';
 import type { Client } from '@/lib/types';
 import type { Database } from '@/lib/types/database';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const clientId = params.id;
+
+    const { data: existingClient, error: fetchError } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !existingClient) {
+      return NextResponse.json(
+        { error: 'Client not found' },
+        { status: 404 }
+      );
+    }
+
+    const dbRow = existingClient as Database['public']['Tables']['clients']['Row'];
+    const client: Client = {
+      id: dbRow.id,
+      name: dbRow.name,
+      address: dbRow.address,
+      lat: dbRow.lat,
+      lng: dbRow.lng,
+      is_active: dbRow.is_active,
+      created_at: dbRow.created_at,
+    };
+
+    return NextResponse.json({ client }, { status: 200 });
+  } catch (error) {
+    console.error('Get client error:', error);
+    return NextResponse.json(
+      { error: 'Failed to get client' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }

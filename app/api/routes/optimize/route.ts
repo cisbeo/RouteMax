@@ -5,16 +5,22 @@ import { createClient } from '@/lib/supabase/server';
 import type { Route, RouteStop } from '@/lib/types';
 import type { Database } from '@/lib/types/database';
 
+// Accept datetime with or without timezone suffix
+const datetimeSchema = z.string().refine(
+  (val) => !isNaN(Date.parse(val)),
+  { message: 'Invalid datetime format' }
+);
+
 const optimizeSchema = z.object({
   name: z.string().min(1).max(255),
   startAddress: z.string().min(1),
   startLat: z.number().min(-90).max(90),
   startLng: z.number().min(-180).max(180),
-  startDatetime: z.string().datetime(),
+  startDatetime: datetimeSchema,
   endAddress: z.string().min(1),
   endLat: z.number().min(-90).max(90),
   endLng: z.number().min(-180).max(180),
-  endDatetime: z.string().datetime(),
+  endDatetime: datetimeSchema,
   // Either clientIds OR targetAddress/targetLat/targetLng must be provided
   clientIds: z.array(z.string().uuid()).max(25).optional().default([]),
   // Custom target address (used when clientIds is empty)
@@ -68,15 +74,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errors = (error as any).errors as Array<{ path: (string | number)[]; message: string }>;
-      const firstError = errors[0];
+      const issues = error.issues || [];
+      const firstIssue = issues[0];
       return NextResponse.json(
         {
           error: 'Invalid request body',
           code: 'VALIDATION_ERROR',
           details: {
-            field: String(firstError?.path?.join('.') || 'unknown'),
-            message: firstError?.message || 'Validation failed',
+            field: String(firstIssue?.path?.join('.') || 'unknown'),
+            message: firstIssue?.message || 'Validation failed',
           },
         },
         { status: 400 }

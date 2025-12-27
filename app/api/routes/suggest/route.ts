@@ -10,6 +10,8 @@ const suggestSchema = z.object({
   endLng: z.number().min(-180).max(180),
   corridorRadiusKm: z.number().min(0.1).max(50).optional().default(5),
   maxSuggestions: z.number().min(1).max(50).optional().default(20),
+  // Existing client IDs for building extended bounding box (loop routes)
+  existingClientIds: z.array(z.string().uuid()).optional(),
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -27,78 +29,101 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const body = await request.json();
     const validated = suggestSchema.parse(body);
 
-    const { startLat, startLng, endLat, endLng, corridorRadiusKm, maxSuggestions } = validated;
+    const { startLat, startLng, endLat, endLng, corridorRadiusKm, maxSuggestions, existingClientIds } = validated;
 
-    // Convert corridor radius from km to meters
-    const corridorRadiusMeters = corridorRadiusKm * 1000;
+    // Check if this is a loop route (start === end) and we have existing waypoints
+    const isLoopRoute = Math.abs(startLat - endLat) < 0.0001 && Math.abs(startLng - endLng) < 0.0001;
+    const hasExistingClients = existingClientIds && existingClientIds.length > 0;
 
-    // Query all active clients for the user
-    const { data: allClients, error: queryError } = await supabase
-      .from('clients')
-      .select('id, name, address, lat, lng, is_active, created_at')
-      .eq('user_id', user.id)
-      .eq('is_active', true);
+    let suggestedClients;
+    let queryError;
 
-    if (queryError || !allClients) {
-      return NextResponse.json(
-        { error: 'Failed to fetch clients' },
-        { status: 500 }
-      );
+    if (isLoopRoute && hasExistingClients) {
+      // For loop routes: use polyline corridor through all waypoints
+      const { data: existingClientsData, error: fetchError } = await supabase
+        .from('clients')
+        .select('lat, lng')
+        .in('id', existingClientIds);
+
+      if (fetchError || !existingClientsData) {
+        console.error('Failed to fetch existing client coords:', fetchError);
+        return await fallbackSuggest(supabase, user.id, validated);
+      }
+
+      // Build polyline points: start → clients → start (close the loop)
+      const polylinePoints = [
+        { lat: startLat, lng: startLng },
+        ...existingClientsData,
+        { lat: startLat, lng: startLng }, // Close the loop
+      ];
+
+      console.log('Loop route polyline:', {
+        startPoint: { lat: startLat, lng: startLng },
+        waypointCount: existingClientsData.length,
+        totalPoints: polylinePoints.length,
+        corridorRadiusKm,
+      });
+
+      const result = await supabase.rpc('suggest_clients_along_polyline', {
+        p_user_id: user.id,
+        p_points_json: polylinePoints, // Pass as array, Supabase converts to JSONB
+        p_corridor_radius_m: corridorRadiusKm * 1000,
+        p_max_results: maxSuggestions,
+      });
+
+      suggestedClients = result.data;
+      queryError = result.error;
+    } else {
+      // Standard corridor search for non-loop routes
+      const result = await supabase.rpc('suggest_clients_along_route', {
+        p_user_id: user.id,
+        p_start_lng: startLng,
+        p_start_lat: startLat,
+        p_end_lng: endLng,
+        p_end_lat: endLat,
+        p_corridor_radius_m: corridorRadiusKm * 1000,
+        p_max_results: maxSuggestions,
+      });
+
+      suggestedClients = result.data;
+      queryError = result.error;
     }
 
-    // Calculate distance from each client to route line (simple point-to-line distance)
-    const suggestedClients = allClients
-      .map((rawClient) => {
-        const client = rawClient as {
-          id: string;
-          name: string;
-          address: string;
-          lat: number;
-          lng: number;
-          is_active: boolean;
-          created_at: string;
-        };
+    if (queryError) {
+      console.error('PostGIS query error:', queryError);
+      // Fallback to in-memory calculation if RPC fails
+      return await fallbackSuggest(supabase, user.id, validated);
+    }
 
-        const distance = calculatePointToLineDistance(
-          client.lat,
-          client.lng,
-          startLat,
-          startLng,
-          endLat,
-          endLng
-        );
-
-        // Only include clients within corridor radius
-        if (distance > corridorRadiusMeters) {
-          return null;
-        }
-
-        // Score based on proximity (closer = higher score)
-        const score = Math.max(0, 100 - (distance / corridorRadiusMeters) * 100);
-
-        return {
-          id: client.id,
-          name: client.name,
-          address: client.address,
-          lat: client.lat,
-          lng: client.lng,
-          is_active: client.is_active,
-          created_at: client.created_at,
-          distanceFromRouteLine: Math.round(distance),
-          score: Math.round(score),
-        };
-      })
-      .filter((client): client is SuggestedClient => client !== null)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, maxSuggestions);
+    const suggestions: SuggestedClient[] = (suggestedClients || []).map((row: {
+      id: string;
+      name: string;
+      address: string;
+      lat: number;
+      lng: number;
+      is_active: boolean;
+      created_at: string;
+      distance_meters: number;
+      score: number;
+    }) => ({
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      lat: row.lat,
+      lng: row.lng,
+      is_active: row.is_active,
+      created_at: row.created_at,
+      distanceFromRouteLine: Math.round(row.distance_meters),
+      score: Math.round(row.score),
+    }));
 
     return NextResponse.json(
-      { suggestions: suggestedClients },
+      { suggestions },
       { status: 200 }
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errors = (error as any).errors as Array<{ path: (string | number)[]; message: string }>;
+      const errors = (error as z.ZodError).errors;
       const firstError = errors[0];
       return NextResponse.json(
         {
@@ -122,8 +147,68 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
- * Calculate perpendicular distance from a point to a line segment
- * Using the formula for distance from point to line in 2D space
+ * Fallback to in-memory calculation if PostGIS RPC is not available
+ */
+async function fallbackSuggest(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  params: z.infer<typeof suggestSchema>
+): Promise<NextResponse> {
+  const { startLat, startLng, endLat, endLng, corridorRadiusKm, maxSuggestions } = params;
+  const corridorRadiusMeters = corridorRadiusKm * 1000;
+
+  const { data: allClients, error: queryError } = await supabase
+    .from('clients')
+    .select('id, name, address, lat, lng, is_active, created_at')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (queryError || !allClients) {
+    return NextResponse.json(
+      { error: 'Failed to fetch clients' },
+      { status: 500 }
+    );
+  }
+
+  const suggestedClients = allClients
+    .map((client) => {
+      const distance = calculatePointToLineDistance(
+        client.lat,
+        client.lng,
+        startLat,
+        startLng,
+        endLat,
+        endLng
+      );
+
+      if (distance > corridorRadiusMeters) return null;
+
+      const score = Math.max(0, 100 - (distance / corridorRadiusMeters) * 100);
+
+      return {
+        id: client.id,
+        name: client.name,
+        address: client.address,
+        lat: client.lat,
+        lng: client.lng,
+        is_active: client.is_active,
+        created_at: client.created_at,
+        distanceFromRouteLine: Math.round(distance),
+        score: Math.round(score),
+      };
+    })
+    .filter((client): client is SuggestedClient => client !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxSuggestions);
+
+  return NextResponse.json(
+    { suggestions: suggestedClients },
+    { status: 200 }
+  );
+}
+
+/**
+ * Calculate perpendicular distance from a point to a line segment (fallback)
  */
 function calculatePointToLineDistance(
   px: number,
@@ -133,28 +218,20 @@ function calculatePointToLineDistance(
   x2: number,
   y2: number
 ): number {
-  // Vector from start to end of line
   const dx = x2 - x1;
   const dy = y2 - y1;
-
-  // Length squared of line segment
   const lenSq = dx * dx + dy * dy;
 
   if (lenSq === 0) {
-    // Line segment is a point
     return haversineDistance(py, px, y1, x1);
   }
 
-  // Parameter t of the projection of point onto line
-  // Clamped to [0, 1] to handle points beyond line segment
   let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
   t = Math.max(0, Math.min(1, t));
 
-  // Closest point on line segment
   const closestX = x1 + t * dx;
   const closestY = y1 + t * dy;
 
-  // Distance from point to closest point on line (in meters using Haversine)
   return haversineDistance(py, px, closestY, closestX);
 }
 
@@ -167,7 +244,7 @@ function haversineDistance(
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371000; // Earth radius in meters
+  const R = 6371000;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
 
@@ -179,7 +256,6 @@ function haversineDistance(
       Math.sin(dLon / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
   return R * c;
 }
 

@@ -208,8 +208,9 @@ Get client suggestions based on route corridor using PostGIS spatial queries.
   startLng: number;
   endLat: number;
   endLng: number;
-  corridorRadiusKm: number; // default: 5
-  maxSuggestions: number;   // default: 20
+  corridorRadiusKm: number;   // default: 5, max: 50
+  maxSuggestions: number;     // default: 20, max: 50
+  existingClientIds?: string[]; // UUIDs of clients already in route (for loop routes)
 }
 ```
 
@@ -236,11 +237,21 @@ Get client suggestions based on route corridor using PostGIS spatial queries.
 ```
 
 **Algorithm**:
+
+For **standard routes** (start ≠ end):
 1. Create LineString from start → end
 2. Query clients within corridor radius using `ST_DWithin`
 3. Calculate distance from route line with `ST_Distance`
 4. Score based on proximity (closer = higher score)
 5. Return top N suggestions ordered by score
+
+For **loop routes** (start === end) with existing waypoints:
+
+1. Build polyline: start → existing clients → start (closed loop)
+2. Create LineString through all waypoints via `suggest_clients_along_polyline`
+3. Query clients within corridor of the polyline
+4. Score = distance to line (not to center)
+5. Clients near any point of the route get high scores
 
 **Error Responses**:
 - `400`: Invalid coordinates or parameters

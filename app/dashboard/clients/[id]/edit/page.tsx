@@ -21,17 +21,18 @@ export default function EditClientPage({ params }: { params: { id: string } }) {
 
   const fetchClient = useCallback(async () => {
     try {
-      const response = await fetch(`/api/clients?page=1&limit=1`);
-      if (!response.ok) throw new Error('Failed to fetch clients');
+      const response = await fetch(`/api/clients/${clientId}`);
 
-      const data = await response.json();
-      const foundClient = data.clients.find((c: Client) => c.id === clientId);
-
-      if (!foundClient) {
+      if (response.status === 404) {
         toast.error('Client not found');
         router.push('/dashboard/clients');
         return;
       }
+
+      if (!response.ok) throw new Error('Failed to fetch client');
+
+      const data = await response.json();
+      const foundClient = data.client;
 
       setClient(foundClient);
       setFormData({

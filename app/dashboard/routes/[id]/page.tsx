@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { RouteMap } from '@/components/routes/RouteMap';
 import { RouteTimeline } from '@/components/routes/RouteTimeline';
 import { RouteActions } from '@/components/routes/RouteActions';
+import { RouteDetailClient } from '@/components/routes/RouteDetailClient';
 import type { Route, RouteStop } from '@/lib/types';
 import type { Database } from '@/lib/types/database';
 
@@ -184,6 +185,9 @@ async function RouteDetail({ routeId }: { routeId: string }) {
             googleMapsApiKey={googleMapsApiKey}
           />
         </div>
+
+        {/* Client Suggestions */}
+        <RouteDetailClient route={route} stops={stops} />
 
         {/* Timeline and Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
